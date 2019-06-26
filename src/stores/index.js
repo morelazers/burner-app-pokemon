@@ -1,7 +1,7 @@
 import wallet from './wallet'
 import dapp from './dapp'
 
-export default function(config) {
-  wallet(config)
-  dapp(config)
+export default function(state) {
+  wallet(state)
+  dapp(state)
 }

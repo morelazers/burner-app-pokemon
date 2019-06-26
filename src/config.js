@@ -2,7 +2,8 @@ module.exports = {
   NETWORKS: {
     1: 'https://etherscan.io',
     10: 'http://localhost:8545',
-    100: 'https://xdai.poa.network'
+    100: 'https://xdai.poa.network',
+    9001: 'https://testnet2.matic.network'
   },
   CURRENCY_SYMBOL: `៛`,
   TOKEN_ABI: [

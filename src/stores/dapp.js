@@ -1,4 +1,4 @@
-import ethers from 'ethers'
+import { ethers } from 'ethers'
 import { readable, writable } from 'svelte/store'
 import { wallet } from './wallet'
 
@@ -6,95 +6,72 @@ export let dapp
 
 let contract
 
-export default async function init(options) {
-  const { CURRENCY_SYMBOL } = options.config
+/**
+ * Okey dokey, so we have the ability to do some things here.
+ * It would be wonderful if:
+ *  - We could sign transactions on the plasma network with the same private key
+ *  - Those transactions would remove some of the funds from our wallet
+ *  - Obviously this is not really possible, unfortunately, neither is the x-chain comms
+ *
+ * So, what we might have to do instead is something like:
+ *  - Spend your flexbuxx on "credits" which are then given to you on the plasma network
+ *  - I think this might be possible with Matic
+ *
+ */
+
+export default async function init(state) {
+  const { CURRENCY_SYMBOL } = state.config
   // okay - let's build our fkn dapp
 
   // set our initial dapp state
+  // let nonce = await wallet.nonce()
   dapp = {
-    address: '0x952dc143d3e8d9c3a1341f016c4b8457da7e550c', // put our dapp address in here
-    status: writable('INITIALISED'),
-    price: 10,
-    pot: writable(0, setPot),
-    roll: () => {
-      setStatus('ROLLING')
-      const tx = wallet.sendTokens(
-        dapp.address,
-        10,
-        ethers.utils.bigNumberify(dapp.price).toHexString(),
-        'roll(address,uint256,bytes)'
-      )
-      tx.then(async r => {
-        console.log({ r })
-        await r.wait()
-        setStatus('INITIALISED')
-      })
+    streamLoaded: writable(false),
+    address: '0xe0728a9d55ebd03bfcc6e9faa59e6dfe96741636', // put our dapp address in here
+    status: writable('READY'),
+    press: async num => {
+      dapp.status.set('WAITING')
+      const tx = await dapp.contract.makeAction(num)
+      await tx.wait()
+      dapp.status.set('READY')
     },
     abi: [
       {
-        anonymous: false,
+        constant: false,
         inputs: [
           {
-            indexed: false,
-            name: 'amount',
-            type: 'uint256'
-          },
-          {
-            indexed: false,
-            name: 'odds',
-            type: 'uint256'
-          },
-          {
-            indexed: false,
-            name: 'actual',
-            type: 'uint256'
+            name: 'action',
+            type: 'uint8'
           }
         ],
-        name: 'Win',
-        type: 'event'
+        name: 'makeAction',
+        outputs: [],
+        payable: false,
+        stateMutability: 'nonpayable',
+        type: 'function'
       },
       {
         anonymous: false,
         inputs: [
           {
             indexed: false,
-            name: 'odds',
-            type: 'uint256'
-          },
-          {
-            indexed: false,
-            name: 'actual',
-            type: 'uint256'
+            name: 'action',
+            type: 'uint8'
           }
         ],
-        name: 'Lose',
+        name: 'ActionMade',
         type: 'event'
       }
-    ],
-    getContract: () => {
-      return new ethers.Contract(dapp.address, dapp.abi, wallet.provider)
-    }
+    ]
   }
 
-  console.log('-- SETTING UP LISTENERS --')
-  const contract = dapp.getContract()
-  contract.on(contract.filters.Win(), (won, odds, actual) => {
-    console.log(won.toNumber(), odds.toNumber(), actual.toNumber())
-    wallet.notify('success', `You won ${CURRENCY_SYMBOL}${won.toNumber()}`)
-    setPot()
-  })
-  contract.on(contract.filters.Lose(), (odds, actual) => {
-    console.log(odds.toNumber(), actual.toNumber())
-    wallet.notify('error', `You lost`)
-    setPot()
-  })
+  // dapp.contract = new ethers.Contract(
+  //   dapp.address,
+  //   dapp.abi,
+  //   wallet.provider
+  // ).connect(wallet.signer)
 
-  async function setStatus(newStatus) {
-    dapp.status.set(newStatus)
-  }
-
-  async function setPot() {
-    const potSize = await wallet.tokenBalanceOf(dapp.address)
-    dapp.pot.set(potSize.toNumber())
-  }
+  // dapp.contract.on(dapp.contract.filters.ActionMade(), action => {
+  // console.log(action)
+  // })
 }
